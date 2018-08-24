@@ -1,0 +1,10 @@
+[package]
+name = "numerics"
+version = "0.1.0"
+authors = ["Michail Pevnev <mpevnev@gmail.com>"]
+
+[dependencies]
+num = "0.2.0"
+
+[dev-dependencies]
+galvanic-test = "0.1.0"
