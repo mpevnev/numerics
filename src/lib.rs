@@ -1,11 +1,7 @@
 extern crate num;
 
-pub mod roots;
+#[cfg(test)] #[macro_use] extern crate galvanic_test;
+#[cfg(test)] #[macro_use] extern crate galvanic_assert;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod epsilon;
+pub mod roots;

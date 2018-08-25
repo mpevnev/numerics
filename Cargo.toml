@@ -8,3 +8,4 @@ num = "0.2.0"
 
 [dev-dependencies]
 galvanic-test = "0.1.0"
+galvanic-assert = "0.8.0"
