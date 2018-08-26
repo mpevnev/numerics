@@ -1,4 +1,4 @@
-use num::{Float, FromPrimitive};
+use num::{Float, FromPrimitive, Signed, abs};
 
 use epsilon::Epsilon;
 
@@ -22,7 +22,7 @@ pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
                         right: T, 
                         target: &F)
     -> Option<T>
-    where T: Float + FromPrimitive,
+    where T: Float + FromPrimitive + Signed,
           F: Fn(T) -> T
 {
     let mut iter = 0;
@@ -36,9 +36,9 @@ pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
     }
 
     let mut mid = (left + right) / T::from_i32(2).unwrap();
+    let mut mid_val = target(mid);
     let max = config.max_iters;
     while right - left > config.precision && max.map_or(true, |m| iter < m) {
-        let mid_val = target(mid);
         if left_val * mid_val <= T::zero() {
             right = mid;
             right_val = mid_val;
@@ -50,9 +50,16 @@ pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
         }
         iter += 1;
         mid = (left + right) / T::from_i32(2).unwrap();
+        mid_val = target(mid);
     }
 
-    Some(mid)
+    if abs(left_val) < abs(mid_val) {
+        Some(left)
+    } else if abs(right_val) < abs(mid_val) {
+        Some(right)
+    } else {
+        Some(mid)
+    }
 }
 
 /* ---------- bisection for intervals with several roots ---------- */
@@ -80,27 +87,26 @@ struct MultiRootBisectState<'a, T, F: 'a> {
     last_root: Option<T>
 }
 
-/*
-pub fn bisect_multi<'a, T, F>(config: MultiRootBisectCfg<T>,
-                          left: T,
-                          right: T,
-                          target: F)
-    -> impl Iterator<Item = T>
-    where T: Float + FromPrimitive,
-          F: 'a + Fn(T) -> T
+pub fn bisect_multi<'a, T: 'a, F>(config: MultiRootBisectCfg<T>,
+                              left: T,
+                              right: T,
+                              target: &'a F)
+    -> impl Iterator<Item = T> + 'a
+    where T: Float + FromPrimitive + Epsilon<RHS=T, PrecisionType=T> + Signed,
+          F: Fn(T) -> T
 {
     MultiRootBisectState {
         cfg: config,
         left,
         right,
-        target: &target,
-        cur_interval: 0
+        target,
+        cur_interval: 0,
+        last_root: None
     }
 }
-*/
 
 impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F> 
-    where T: Float + FromPrimitive + Epsilon<RHS=T, PrecisionType=T>,
+    where T: Float + FromPrimitive + Signed + Epsilon<RHS=T, PrecisionType=T>,
           F: 'a + Fn(T) -> T
 {
     type Item = T;
@@ -131,6 +137,7 @@ impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F>
                 if duplicate {
                     continue
                 }
+                self.last_root = Some(root);
                 return Some(root)
             }
         }
@@ -184,17 +191,24 @@ mod tests {
                 max_iters: None,
                 num_intervals: 20
             };
-            let state = MultiRootBisectState {
-                cfg,
-                left: -3.0,
-                right: 3.0,
-                target: &target,
-                cur_interval: 0
-            };
-            let roots: Vec<_> = state.collect();
+            let roots: Vec<_> = bisect_multi(cfg, -3.0, 3.0, &target).collect();
             assert_that!(&roots.len(), eq(2));
             assert_that!(roots[0].close(-2.0, prec));
             assert_that!(roots[1].close(2.0, prec));
+        }
+
+        test bisect_multi_pos_2() {
+            let target = |x| x;
+            let prec = 1e-6;
+            let cfg = MultiRootBisectCfg {
+                precision: prec,
+                max_iters: None,
+                num_intervals: 2
+            };
+            let roots: Vec<_> = bisect_multi(cfg, -1.0, 1.0, &target).collect();
+            println!("{:?}", roots);
+            assert_that!(&roots.len(), eq(1));
+            assert_that!(roots[0].close(0.0, prec));
         }
     }
 }
