@@ -12,14 +12,14 @@ pub struct OneRootBisectCfg<T> {
     pub precision: T,
     /// A limit on the number of iterations to perform. Pass `None` if you
     /// don't want a limit.
-    pub max_iters: Option<u32>  
+    pub max_iters: Option<u32>
 }
 
 /// Find a root for a given function in a given interval, assuming there is
 /// only one root there.
 pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
-                        left: T, 
-                        right: T, 
+                        left: T,
+                        right: T,
                         target: &F)
     -> Option<T>
     where T: Float + FromPrimitive + Signed,
@@ -69,7 +69,7 @@ pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
 pub struct MultiRootBisectCfg<T> {
     /// Real roots will be no further than that from reported roots.
     pub precision: T,
-    /// A limit on the number of iterations to perform. Pass `None` if you 
+    /// A limit on the number of iterations to perform. Pass `None` if you
     /// don't want a limit.
     pub max_iters: Option<u32>,
     /// The requested interval will be split into this many chunks, and each
@@ -79,7 +79,7 @@ pub struct MultiRootBisectCfg<T> {
 
 #[derive(Debug, Clone, Copy)]
 struct MultiRootBisectState<'a, T, F: 'a> {
-    cfg: MultiRootBisectCfg<T>, 
+    cfg: MultiRootBisectCfg<T>,
     left: T,
     right: T,
     target: &'a F,
@@ -92,7 +92,7 @@ pub fn bisect_multi<'a, T: 'a, F>(config: MultiRootBisectCfg<T>,
                               right: T,
                               target: &'a F)
     -> impl Iterator<Item = T> + 'a
-    where T: Float + FromPrimitive + Epsilon<RHS=T, PrecisionType=T> + Signed,
+    where T: Float + FromPrimitive + Epsilon<RHS=T, Precision=T> + Signed,
           F: Fn(T) -> T
 {
     MultiRootBisectState {
@@ -105,8 +105,8 @@ pub fn bisect_multi<'a, T: 'a, F>(config: MultiRootBisectCfg<T>,
     }
 }
 
-impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F> 
-    where T: Float + FromPrimitive + Signed + Epsilon<RHS=T, PrecisionType=T>,
+impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F>
+    where T: Float + FromPrimitive + Signed + Epsilon<RHS=T, Precision=T>,
           F: 'a + Fn(T) -> T
 {
     type Item = T;
@@ -123,7 +123,7 @@ impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F>
                 .expect("Failed to convert an index into a float");
             let left = self.left + interval_width * int;
             let right = left + interval_width;
-            let one_cfg = OneRootBisectCfg { 
+            let one_cfg = OneRootBisectCfg {
                 precision: self.cfg.precision,
                 max_iters: self.cfg.max_iters
             };
