@@ -302,9 +302,20 @@ mod tests {
                 num_intervals: 2
             };
             let roots: Vec<_> = bisect_multi(cfg, -1.0, 1.0, &target).collect();
-            println!("{:?}", roots);
             assert_that!(&roots.len(), eq(1));
             assert_that!(roots[0].close(0.0, prec));
+        }
+
+        test bisect_multi_neg_1() {
+            let target = |x| (x - 1.0) * (x - 2.0);
+            let prec = 1e-6;
+            let cfg = MultiRootBisectCfg {
+                precision: prec,
+                max_iters: None,
+                num_intervals: 10
+            };
+            let roots = bisect_multi(cfg, 3.0, 4.0, &target).collect::<Vec<_>>();
+            assert_that!(&roots, eq(vec![]));
         }
     }
 }
