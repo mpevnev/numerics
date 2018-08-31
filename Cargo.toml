@@ -2,6 +2,7 @@
 name = "numerics"
 version = "0.1.0"
 authors = ["Michail Pevnev <mpevnev@gmail.com>"]
+license = "GPL-3.0-or-later"
 
 [dependencies]
 num = "0.2.0"
