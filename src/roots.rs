@@ -174,7 +174,7 @@ pub fn newton_one<T, F, D>(config: OneRootNewtonCfg<T>,
     let mut root = first_approx;
     let mut prev_root = None;
     let mut iter = 0;
-    while prev_root.map_or(true, |old| root.close(old, config.precision))
+    while prev_root.map_or(true, |old| !root.close(old, config.precision))
         && config.max_iters.map_or(true, |max| iter < max) {
             iter += 1;
             let left_val = target(left);
@@ -248,6 +248,8 @@ mod tests {
     test_suite! {
         name bisect_one_tests;
 
+        use num::pow::Pow;
+
         use galvanic_assert::matchers::*;
 
         use epsilon::Epsilon;
@@ -316,6 +318,46 @@ mod tests {
             };
             let roots = bisect_multi(cfg, 3.0, 4.0, &target).collect::<Vec<_>>();
             assert_that!(&roots, eq(vec![]));
+        }
+
+        test newton_one_pos_1() {
+            let target = |x: f64| (x - 1.0) * (x - 2.0) * (x - 3.0);
+            let der = |x: f64| 3.0 * x.pow(2) - 12.0 * x + 11.0;
+            let prec = 1e-6;
+            let cfg = OneRootNewtonCfg {
+                precision: prec,
+                max_iters: None
+            };
+            let root = newton_one(cfg, 0.5, 1.5, 0.55, &target, &der);
+            assert_that!(root.unwrap().close(1.0, prec));
+            let root = newton_one(cfg, 1.5, 2.5, 1.55, &target, &der);
+            assert_that!(root.unwrap().close(2.0, prec));
+            let root = newton_one(cfg, 2.5, 4.0, 3.15, &target, &der);
+            assert_that!(root.unwrap().close(3.0, prec));
+        }
+
+        test newton_one_pos_2() {
+            let target = |x: f64| x.pow(0.1) - 1.0;
+            let der = |x: f64| 0.1 * x.pow(-0.9);
+            let prec = 1e-6;
+            let cfg = OneRootNewtonCfg {
+                precision: prec,
+                max_iters: None
+            };
+            let root = newton_one(cfg, 0.5, 1.5, 0.55, &target, &der);
+            assert_that!(root.unwrap().close(1.0, prec));
+        }
+
+        test newton_one_neg_1() {
+            let target = |x: f64| (x - 1.0) * (x - 2.0) * (x - 3.0);
+            let der = |x: f64| 3.0 * x.pow(2) - 12.0 * x + 11.0;
+            let prec = 1e-6;
+            let cfg = OneRootNewtonCfg {
+                precision: prec,
+                max_iters: None
+            };
+            let root = newton_one(cfg, 5.0, 6.0, 5.5, &target, &der);
+            assert_that!(root.is_none());
         }
     }
 }
