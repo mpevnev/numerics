@@ -91,7 +91,7 @@ pub fn bisect_multi<'a, T, F>(config: MultiRootBisectCfg<T>,
                               left: T,
                               right: T,
                               target: &'a F)
-    -> impl Iterator<Item = T> + 'a
+    -> impl Iterator<Item=T> + 'a
     where T: 'a + Float + FromPrimitive + Epsilon<RHS=T, Precision=T> + Signed,
           F: Fn(T) -> T
 {
@@ -272,6 +272,27 @@ struct MultiRootNewtonState<'a, T, F: 'a, D: 'a> {
     cur_interval: usize
 }
 
+pub fn newton_multi<'a, T, F, D>(cfg: MultiRootNewtonCfg<T>,
+                                 left: T,
+                                 right: T,
+                                 target: &'a F,
+                                 derivative: &'a D)
+    -> impl 'a + Iterator<Item=T> 
+    where T: 'a + Float + FromPrimitive + Epsilon<RHS=T, Precision=T>,
+          F: 'a + Fn(T) -> T,
+          D: 'a + Fn(T) -> T
+{
+    MultiRootNewtonState {
+        cfg,
+        left,
+        right,
+        target,
+        derivative,
+        last_root: None,
+        cur_interval: 0
+    }
+}
+
 impl<'a, T, F, D> Iterator for MultiRootNewtonState<'a, T, F, D>
     where T: Float + FromPrimitive + Epsilon<RHS=T, Precision=T>,
           F: 'a + Fn(T) -> T,
@@ -432,6 +453,35 @@ mod tests {
             };
             let root = newton_one(cfg, 5.0, 6.0, 5.5, &target, &der);
             assert_that!(root.is_none());
+        }
+
+        test newton_multi_pos_1() {
+            let target = |x: f64| (x - 1.0) * (x - 2.0) * (x - 3.0);
+            let der = |x: f64| 3.0 * x.pow(2) - 12.0 * x + 11.0;
+            let prec = 1e-6;
+            let cfg = MultiRootNewtonCfg {
+                precision: prec,
+                max_iters: None,
+                num_intervals: 10
+            };
+            let roots = newton_multi(cfg, 0.0, 5.0, &target, &der).collect::<Vec<_>>();
+            assert_that!(&roots.len(), eq(3));
+            assert_that!(roots[0].close(1.0, prec));
+            assert_that!(roots[1].close(2.0, prec));
+            assert_that!(roots[2].close(3.0, prec));
+        }
+
+        test newton_multi_neg_1() {
+            let target = |x: f64| (x - 1.0) * (x - 2.0) * (x - 3.0);
+            let der = |x: f64| 3.0 * x.pow(2) - 12.0 * x + 11.0;
+            let prec = 1e-6;
+            let cfg = MultiRootNewtonCfg {
+                precision: prec,
+                max_iters: None,
+                num_intervals: 10
+            };
+            let roots = newton_multi(cfg, 5.0, 6.0, &target, &der).collect::<Vec<_>>();
+            assert_that!(&roots, eq(vec![]));
         }
     }
 }
