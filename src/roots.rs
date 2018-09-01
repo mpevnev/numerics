@@ -87,12 +87,12 @@ struct MultiRootBisectState<'a, T, F: 'a> {
     last_root: Option<T>
 }
 
-pub fn bisect_multi<'a, T: 'a, F>(config: MultiRootBisectCfg<T>,
+pub fn bisect_multi<'a, T, F>(config: MultiRootBisectCfg<T>,
                               left: T,
                               right: T,
                               target: &'a F)
     -> impl Iterator<Item = T> + 'a
-    where T: Float + FromPrimitive + Epsilon<RHS=T, Precision=T> + Signed,
+    where T: 'a + Float + FromPrimitive + Epsilon<RHS=T, Precision=T> + Signed,
           F: Fn(T) -> T
 {
     MultiRootBisectState {
@@ -145,7 +145,7 @@ impl<'a, T, F> Iterator for MultiRootBisectState<'a, T, F>
     }
 }
 
-/* ---------- Newton's method ---------- */
+/* ---------- Newton's method (single root) ---------- */
 
 /// Configuration structure for the Newton's method (one root version).
 #[derive(Debug, Clone, Copy)]
@@ -171,14 +171,14 @@ pub fn newton_one<T, F, D>(config: OneRootNewtonCfg<T>,
 {
     let mut left = left;
     let mut right = right;
+    let mut left_val = target(left);
+    let mut right_val = target(right);
     let mut root = first_approx;
     let mut prev_root = None;
     let mut iter = 0;
     while prev_root.map_or(true, |old| !root.close(old, config.precision))
         && config.max_iters.map_or(true, |max| iter < max) {
             iter += 1;
-            let left_val = target(left);
-            let right_val = target(right);
             if let Some(next) = next_newton_iter(config.precision,
                                                  left, 
                                                  right, 
@@ -197,8 +197,10 @@ pub fn newton_one<T, F, D>(config: OneRootNewtonCfg<T>,
             let val_at_root = target(root);
             if left_val * val_at_root <= T::zero() {
                 right = root;
+                right_val = val_at_root;
             } else {
                 left = root;
+                left_val = val_at_root;
             }
     }
     Some(root)
