@@ -67,7 +67,7 @@ pub fn bisect_one<T, F>(config: OneRootBisectCfg<T>,
 /// Configuration structure for the bisection method (multiple roots version).
 #[derive(Debug, Clone, Copy)]
 pub struct MultiRootBisectCfg<T> {
-    /// Real roots will be no further than that from reported roots.
+    /// Real roots will be no further than this from the reported roots.
     pub precision: T,
     /// A limit on the number of iterations to perform. Pass `None` if you
     /// don't want a limit.
@@ -240,6 +240,78 @@ fn linear_fallback<T: Float>(x1: T , x2: T, y1: T, y2: T) -> Option<T>
         None
     } else {
         Some(res)
+    }
+}
+
+/* ---------- Newton's method (multiple roots) ---------- */
+
+/// Configuration structure for the Newton's method (multiple roots version).
+#[derive(Debug, Clone, Copy)]
+pub struct MultiRootNewtonCfg<T> {
+    /// Real root will most likely be no further that this from the reported
+    /// roots, but it's not guaranteed.
+    pub precision: T,
+    /// A limit on the number of iterations to perform. Pass `None` if you 
+    /// don't want to limit it. Note that this option governs maximum number of
+    /// iterations on *each* chunk of the requested interval, not the number
+    /// of iterations total.
+    pub max_iters: Option<u32>,
+    /// The requested interval will be split into this many chunks, and each
+    /// chunk will be tested for a root separately.
+    pub num_intervals: usize
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MultiRootNewtonState<'a, T, F: 'a, D: 'a> {
+    cfg: MultiRootNewtonCfg<T>,
+    left: T,
+    right: T,
+    target: &'a F,
+    derivative: &'a D,
+    last_root: Option<T>,
+    cur_interval: usize
+}
+
+impl<'a, T, F, D> Iterator for MultiRootNewtonState<'a, T, F, D>
+    where T: Float + FromPrimitive + Epsilon<RHS=T, Precision=T>,
+          F: 'a + Fn(T) -> T,
+          D: 'a + Fn(T) -> T
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.cur_interval > self.cfg.num_intervals {
+            return None
+        }
+        let intervals = T::from_usize(self.cfg.num_intervals)
+            .expect("Failed to convert the number of intervals into a float");
+        let interval_width = (self.right - self.left) / intervals;
+        while self.cur_interval < self.cfg.num_intervals {
+            let int = T::from_usize(self.cur_interval)
+                .expect("Failed to convert an index into a float");
+            let left = self.left + interval_width * int;
+            let right = left + interval_width;
+            let one_cfg = OneRootNewtonCfg {
+                precision: self.cfg.precision,
+                max_iters: self.cfg.max_iters
+            };
+            let two = T::from_i32(2).unwrap();
+            let res = newton_one(one_cfg, left, right, (right - left) / two,
+                self.target,
+                self.derivative);
+            self.cur_interval += 1;
+            if let Some(root) = res {
+                let double_prec = self.cfg.precision * two;
+                let is_close = |prev: T| prev.close(root, double_prec);
+                let duplicate = self.last_root.map_or(false, is_close);
+                if duplicate {
+                    continue
+                }
+                self.last_root = Some(root);
+                return Some(root);
+            }
+        }
+        None
     }
 }
 
